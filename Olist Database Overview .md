@@ -4,6 +4,7 @@
 The Olist e-commerce dataset comprises information on 100,000 orders made across multiple marketplaces in Brazil from 2016 to 2018. This dataset provides a comprehensive view of various aspects related to e-commerce transactions, offering insights into order status, pricing, payment and freight performance, customer locations, product attributes, and customer reviews.
 
 ## Dataset Description
+![image](https://github.com/user-attachments/assets/d6e828df-7401-4c94-8181-7be01100c09d)
 
 ### General Information
 
@@ -24,6 +25,9 @@ The dataset allows viewing orders from multiple dimensions, including:
 - **Customer Reviews:** Feedback and reviews provided by customers.
 
 ### Additional Data
+
+![image (1)](https://github.com/user-attachments/assets/fef0f0fe-698c-49f9-9554-2bec6af83ea8)
+
 
 In addition to the order-specific information, the dataset includes a geolocation component that maps Brazilian zip codes to latitude and longitude coordinates. This feature enhances the ability to analyze geographical aspects of the orders.
 
