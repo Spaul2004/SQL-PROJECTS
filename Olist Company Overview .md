@@ -1,8 +1,16 @@
+
+ ![image (3)](https://github.com/user-attachments/assets/1f795863-bfe0-43c6-af18-bf406f985f3e)
+
+ 
+ 
  # Olist - Company Overview 
 
 Olist is a pioneering e-commerce platform that has revolutionized the Brazilian online retail landscape since its inception in 2015. Founded by Tiago Dalvi, Olist has rapidly grown to become the largest department store in Brazilian marketplaces, connecting small and medium-sized businesses across the country to a vast customer base.
 
 ## Core Business Model
+
+![image (2)](https://github.com/user-attachments/assets/b128837d-2d56-4125-8c44-6902604dc261)
+
 
 At its core, Olist operates as a comprehensive marketplace solution, offering a unique value proposition to both merchants and consumers:
 
@@ -11,6 +19,9 @@ At its core, Olist operates as a comprehensive marketplace solution, offering a 
 ***Single Contract Model:*** Through a single contract, merchants can list their products on the Olist Store, gaining instant access to a wide array of sales channels and a large customer base.
 
 ## Logistics Network
+
+![image](https://github.com/user-attachments/assets/38de19a9-8d99-4f2b-8504-598c7d07ded7)
+
 
 One of Olist's key strengths lies in its logistics network:
 
