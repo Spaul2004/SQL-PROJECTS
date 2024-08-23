@@ -1,0 +1,152 @@
+-- Use the 'olist' database for the cleaning process
+
+USE olist;
+
+-- Select all records from the customers table to understand the current data
+
+SELECT * FROM olist.customers;
+
+-- Data cleaning for the customers table
+
+-- Creating a temporary customers table with the same structure as the original
+
+CREATE TABLE temp_customers LIKE customers;
+
+-- Inserting all records from the customers table into the temporary table for processing
+
+INSERT INTO temp_customers 
+SELECT * FROM customers;
+
+-- Select all records from the temporary customers table to verify the data
+
+SELECT * FROM temp_customers;
+
+-- Commit the transaction to ensure all changes are saved
+
+COMMIT;
+
+-- Understanding the schema of the temporary customers table
+
+DESCRIBE temp_customers;
+
+-- Count the distinct customer_id values to verify uniqueness (primary key)
+
+SELECT COUNT(DISTINCT customer_id); -- customer_id is the primary unique key
+
+-- Count the distinct customer_unique_id values to check for duplicates 
+
+SELECT COUNT(DISTINCT customer_unique_id)
+FROM temp_customers;
+
+-- Changing the data type of customer_zipcode to ensure it is numeric
+
+SELECT CAST(customer_zipcode AS unsigned) AS zip
+FROM temp_customers;
+
+-- Checking if the customer_zipcode column has any non-numeric values
+
+SELECT customer_zipcode 
+FROM temp_customers 
+WHERE customer_zipcode REGEXP '[^0-9]';
+
+-- Setting the data type of customer_zipcode to INTEGER for consistency
+
+ALTER TABLE temp_customers 
+MODIFY COLUMN customer_zipcode INTEGER;
+
+-- Commit the transaction to ensure the changes are saved
+
+COMMIT;
+
+-- End of changing data types cleaning
+
+-- Dealing with missing values
+-- Count the total rows and identify missing values for key fields
+
+SELECT
+    COUNT(*) AS total_rows,
+    SUM(IF(customer_id IS NULL OR customer_id = '', 1, 0)) AS customer_id_null,
+    SUM(IF(customer_unique_id IS NULL OR customer_unique_id = '', 1, 0)) AS customer_unique_id_null,
+    SUM(IF(customer_zipcode IS NULL OR customer_zipcode = '', 1, 0)) AS customer_zipcode_null,
+    SUM(IF(customer_city IS NULL OR customer_city = '', 1, 0)) AS customer_city_null,
+    SUM(IF(customer_state IS NULL OR customer_state = '', 1, 0)) AS customer_state_null
+FROM customers;
+
+-- There are no null values in any columns, confirming data completeness
+
+-- Handling duplicates
+-- Identify potential duplicates based on key fields in the customers table
+
+SELECT customer_id, customer_unique_id, customer_zipcode, customer_city, customer_state, COUNT(*) AS cnt
+FROM customers 
+GROUP BY customer_id, customer_unique_id, customer_zipcode, customer_city, customer_state
+HAVING COUNT(*) > 1;
+
+-- Using a Common Table Expression (CTE) to identify duplicates
+
+WITH t AS (
+    SELECT *, ROW_NUMBER() OVER (PARTITION BY customer_id, customer_unique_id, customer_zipcode, customer_city, customer_state) AS rk
+    FROM temp_customers 
+)
+SELECT * FROM t 
+WHERE rk != 1;
+
+-- There are no duplicates found in the customers table
+
+-- Standardizing the columns
+-- Updating customer_city to ensure consistent capitalization
+
+UPDATE temp_customers 
+SET customer_city = CONCAT(UPPER(LEFT(TRIM(customer_city), 1)), LOWER(SUBSTRING(TRIM(customer_city), 2, LENGTH(customer_city) - 1)));
+
+-- Commit the transaction to ensure the changes are saved
+
+COMMIT;
+
+-- Updating customer_state to ensure it is in uppercase and trimmed
+
+UPDATE temp_customers 
+SET customer_state = UPPER(TRIM(customer_state));
+
+-- Commit the transaction to ensure the changes are saved
+
+COMMIT;
+
+-- End of standardization
+
+-- Identifying outliers based on z-score for customer_zipcode
+
+SELECT customer_id, customer_unique_id, customer_zipcode, customer_city, customer_state,
+    (customer_zipcode - ((SELECT AVG(customer_zipcode) FROM temp_customers) / (SELECT STDDEV(customer_zipcode) FROM temp_customers))) AS z_score 
+FROM temp_customers 
+HAVING ABS(z_score) > 3;
+
+-- ENSURING CONSTRAINTS
+-- Describe the temporary customers table to review its structure
+
+DESCRIBE temp_customers;
+
+-- Setting default values for customer_zipcode to ensure it has a fallback value
+
+ALTER TABLE temp_customers 
+MODIFY COLUMN customer_zipcode INT DEFAULT 0;
+
+-- Setting default values for customer_city to ensure it has a fallback value
+
+ALTER TABLE temp_customers 
+MODIFY COLUMN customer_city VARCHAR(50) DEFAULT 'City Not Found';
+
+-- Setting default values for customer_state to ensure it has a fallback value
+
+ALTER TABLE temp_customers 
+MODIFY COLUMN customer_state VARCHAR(50) DEFAULT 'State Not Found';
+
+-- Commit the transaction to ensure the changes are saved
+
+COMMIT;
+
+-- End of adding constraints
+
+-- Select all records from the temporary customers table to finalize the cleaning process
+
+SELECT * FROM temp_customers;
