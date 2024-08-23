@@ -1,6 +1,8 @@
-## Data Cleaning Process
+# Data Cleaning Process
 
-1. **Database Selection**  
+The following steps and concepts are usde in order to validate and clean the Olist data :
+
+1. **Database Selection**
    The code begins by selecting the desired database using the `USE` statement. This ensures that all subsequent operations are performed on the correct dataset.
 
 2. **Temporary Table Creation**  
