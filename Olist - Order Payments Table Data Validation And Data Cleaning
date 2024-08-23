@@ -1,33 +1,42 @@
 -- Select all records from the order_payments table
+
 SELECT * FROM order_payments;
 
 -- Commit the transaction to ensure all changes are saved
+
 COMMIT;
 
 -- Cleaning the order_payments table
 -- Creating a temporary table to hold the original data for processing
+
 CREATE TABLE temp_payments
 LIKE order_payments;
 
 -- Inserting all records from order_payments into the temporary table
+
 INSERT INTO temp_payments 
 SELECT * FROM order_payments;
 
 -- Commit the transaction to ensure the data is saved in the temp table
+
 COMMIT;
 
 -- Understanding the schema of the temporary table
+
 DESCRIBE temp_payments;
 
 -- Checking the data types and contents of the temporary table
+
 SELECT * FROM temp_payments;
 
 -- Modifying the payment_installments column to ensure it is of INTEGER type
+
 ALTER TABLE temp_payments 
 MODIFY payment_installments INTEGER;
 
 -- HANDLING THE MISSING VALUES
 -- Counting total records and identifying missing values for key fields
+
 SELECT 
     COUNT(*) AS total_cnt,
     SUM(IF(order_id IS NULL OR order_id='', 1, 0)) AS order_id_null,
@@ -38,6 +47,7 @@ SELECT
 FROM order_payments;
 
 -- Selecting records from order_payments where payment_installments or payment_value are empty
+
 SELECT 
     * FROM order_payments 
 WHERE (payment_installments='') 
@@ -45,6 +55,7 @@ OR (payment_value='');
 
 -- HANDLING THE DUPLICATE RECORDS
 -- Identifying duplicates based on key fields in the temporary table
+
 SELECT 
     order_id, payment_sequential, payment_type, payment_installments, payment_value,
     COUNT(*) AS cnt
@@ -57,6 +68,7 @@ HAVING
 
 -- NO DUPLICATES
 -- Identifying outliers in payment_installments using Z-score method
+
 SELECT 
     order_id, payment_sequential, payment_type, payment_installments, payment_value,
     ((payment_installments - (SELECT AVG(payment_installments) FROM temp_payments)) / 
@@ -66,11 +78,14 @@ HAVING
     ABS(installments_z_score) > 3;
 
 -- Counting the total number of records in the temporary table
+
 SELECT COUNT(*) FROM temp_payments;
 
 -- Truncating the original order_payments table to prepare for new data
+
 TRUNCATE order_payments;
 
 -- Inserting cleaned data from the temporary table back into the original order_payments table
+
 INSERT INTO order_payments 
 SELECT * FROM temp_payments;
