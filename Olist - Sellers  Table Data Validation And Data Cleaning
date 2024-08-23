@@ -1,0 +1,81 @@
+-- Use the 'olist' database for the cleaning process
+
+USE olist;
+
+-- Creating a temporary table to hold the original data for processing
+
+CREATE TABLE temp_sel
+LIKE sellers;
+
+-- Inserting all records from the sellers table into the temporary table
+
+INSERT INTO temp_sel
+SELECT * FROM sellers;
+
+-- Select all records from the temporary sellers table to verify the data
+
+SELECT * FROM temp_sel;
+
+-- Understanding the schema of the temporary sellers table
+
+DESCRIBE temp_sel;
+
+-- Changing the data types of various columns to ensure they are appropriate for the data
+
+ALTER TABLE temp_sel 
+MODIFY COLUMN seller_zipcode INT;
+
+ALTER TABLE temp_sel 
+MODIFY COLUMN seller_city TEXT;
+
+ALTER TABLE temp_sel 
+MODIFY COLUMN seller_state TEXT;
+
+-- HANDLING THE MISSING VALUES
+-- Count the total records and identify missing values for key fields
+
+SELECT 
+    COUNT(*) AS cnt,
+    SUM(IF(seller_id IS NULL OR seller_id='', 1, 0)) AS seller_id_null,
+    SUM(IF(seller_zipcode IS NULL OR seller_zipcode='', 1, 0)) AS seller_zipcode_null,
+    SUM(IF(seller_city IS NULL OR seller_city='', 1, 0)) AS seller_city_null,
+    SUM(IF(seller_state IS NULL OR seller_state='', 1, 0)) AS seller_state_null
+FROM temp_sel;
+
+-- There are no missing or null values in the relevant fields
+
+-- Handling duplicates
+-- Identify potential duplicates based on key fields in the temp_sel table
+
+SELECT 
+    seller_id, seller_zipcode, seller_city, seller_state, COUNT(*) AS cnt 
+FROM temp_sel 
+GROUP BY 
+    seller_id, seller_zipcode, seller_city, seller_state
+HAVING 
+    COUNT(*) > 1;
+
+-- THERE ARE NO DUPLICATES
+
+-- Standardizing the data values
+-- Select all records from the temporary sellers table to review the data
+
+SELECT * FROM temp_sel;
+
+-- Update the seller_city to ensure consistent capitalization
+
+UPDATE temp_sel 
+SET seller_city = CONCAT(UPPER(LEFT(seller_city, 1)), SUBSTR(seller_city, 2));
+
+-- Commit the transaction to ensure all changes are saved
+
+COMMIT;
+
+-- Truncate the original sellers table to prepare for new data
+
+TRUNCATE sellers;
+
+-- Insert the cleaned data from the temporary table into the original sellers table
+
+INSERT INTO sellers 
+SELECT * FROM temp_sel;
