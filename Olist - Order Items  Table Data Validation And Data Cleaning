@@ -1,0 +1,117 @@
+-- Use the 'olist' database for the cleaning process
+
+USE olist;
+
+-- CLEANING THE ORDER_ITEMS TABLE
+-- CREATING A DUPLICATE TABLE
+-- Select all records from the order_items table
+
+SELECT * FROM order_items;
+
+-- Commit the transaction to ensure all changes are saved
+
+COMMIT;
+
+-- Create a temporary table with the same structure as order_items
+
+CREATE TABLE temp_items 
+LIKE order_items;
+
+-- Insert all records from order_items into the temporary table
+
+INSERT INTO temp_items
+SELECT * FROM order_items;
+
+-- Check the contents of the temporary table
+
+SELECT * FROM temp_items;
+
+-- Commit the transaction to ensure the data is saved in the temp table
+
+COMMIT;
+
+-- UNDERSTAND THE SCHEMA
+-- Describe the structure of the order_items table
+
+DESCRIBE order_items;
+
+-- Update the shipping_limit_date column to convert the date format
+
+UPDATE order_items
+SET shipping_limit_date = STR_TO_DATE(shipping_limit_date, '%Y-%m-%d %H:%i:%s');
+
+-- Ensure that all data types are correct and consistent
+-- HANDLING THE MISSING VALUES
+-- Count the total records and identify missing values for key fields
+
+SELECT 
+    COUNT(*) AS total_cnt,
+    SUM(IF(order_id IS NULL, 1, 0)) AS order_id_null,
+    SUM(IF(order_item_id IS NULL, 1, 0)) AS order_item_id_null,
+    SUM(IF(product_id IS NULL, 1, 0)) AS product_id_null,
+    SUM(IF(seller_id IS NULL, 1, 0)) AS seller_id_null,
+    SUM(IF(shipping_limit_date IS NULL, 1, 0)) AS shipping_limit_date_null,
+    SUM(IF(price IS NULL, 1, 0)) AS price_null,
+    SUM(IF(freight_value IS NULL OR freight_value='', 1, 0)) AS freight_value_null
+FROM order_items;
+
+-- Select records from order_items where freight_value is NULL or empty
+
+SELECT *
+FROM order_items
+WHERE freight_value IS NULL OR freight_value = '';
+
+-- Some freight values are 0, which can be valid for short-distance transportation.
+-- Since we don't know the internal dynamics of the operations, we can keep these values.
+
+-- HANDLING DUPLICATE VALUES
+-- Identify duplicates based on key fields in the temporary table
+
+SELECT 
+    order_id, order_item_id, product_id, seller_id, shipping_limit_date, price, freight_value, COUNT(*) AS cnt
+FROM 
+    temp_items
+GROUP BY 
+    order_id, order_item_id, product_id, seller_id, shipping_limit_date, price, freight_value
+HAVING 
+    COUNT(*) > 1;
+
+-- There are no duplicates, but we can't remove them as it is a fact table.
+
+-- Count the distinct order_id values in the temporary table
+
+SELECT COUNT(DISTINCT order_id) FROM temp_items;
+
+-- IDENTIFYING THE OUTLIERS
+-- Identify outliers based on price and freight_value using Z-score method
+
+SELECT 
+    order_id, order_item_id, product_id, seller_id, shipping_limit_date, price, freight_value,
+    (price - (SELECT AVG(price) FROM temp_items)) / (SELECT STDDEV(price) FROM temp_items) AS price_z_score,
+    (freight_value - (SELECT AVG(freight_value) FROM temp_items)) / (SELECT STDDEV(freight_value) FROM temp_items) AS freight_value_z_score
+FROM temp_items
+HAVING 
+    ABS(price_z_score) > 3 OR ABS(freight_value_z_score) > 3;
+
+-- Outliers are identified, but in this case, we can keep them as high prices and freight values can be valid in the real world.
+
+-- Commit the transaction to ensure all changes are saved
+
+COMMIT;
+
+-- Count the total number of records in the temporary table
+
+SELECT COUNT(*) FROM temp_items;
+
+-- Truncate the original order_items table to prepare for new data
+
+TRUNCATE order_items;
+
+-- Insert the cleaned data from the temporary table into the original order_items table
+
+INSERT INTO order_items
+SELECT * FROM temp_items;
+
+-- Select all records from the cleaned order_items table
+
+SELECT * FROM order_items;
