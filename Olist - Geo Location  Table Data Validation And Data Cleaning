@@ -1,0 +1,85 @@
+-- Use the 'olist' database for the cleaning process
+
+USE olist;
+
+-- Select all records from the geo_location table to understand the current data
+
+SELECT * FROM geo_location;
+
+-- Commit the transaction to ensure all changes are saved
+
+COMMIT;
+
+-- Starting cleaning geo_location data
+
+-- Understanding the schema of the geo_location table
+
+DESCRIBE geo_location;
+
+-- Changing the data type of the zipcode column to INTEGER for consistency
+
+ALTER TABLE geo_location 
+MODIFY COLUMN zipcode INTEGER;
+
+-- HANDLING MISSING VALUES
+-- Count the total records and identify missing values for key fields
+
+SELECT 
+    COUNT(*) AS total,
+    SUM(IF(zipcode IS NULL OR zipcode ='', 1, 0)) AS zipcode_null,
+    SUM(IF(latitude IS NULL OR latitude='', 1, 0)) AS latitude_null,
+    SUM(IF(longitude IS NULL OR longitude='', 1, 0)) AS longitude_null,
+    SUM(IF(city IS NULL OR city='', 1, 0)) AS city_null,
+    SUM(IF(geostate IS NULL OR geostate='', 1, 0)) AS geostate_null
+FROM geo_location;
+
+-- There are no null values in the geo_location table
+-- Selecting records to identify duplicates based on key fields
+
+SELECT zipcode, latitude, longitude, city, geostate, COUNT(*) AS cnt 
+FROM geo_location
+GROUP BY zipcode, latitude, longitude, city, geostate
+HAVING COUNT(*) > 1;
+
+-- Commit the transaction to ensure all changes are saved
+
+COMMIT;
+
+-- END OF HANDLING OF MISSING VALUES
+
+-- Identifying duplicates using a Common Table Expression (CTE)
+
+WITH t AS (
+    SELECT *, ROW_NUMBER() OVER (PARTITION BY zipcode, latitude, longitude, city, geostate ORDER BY (SELECT NULL)) AS rk 
+    FROM geo_location 
+)
+SELECT * FROM t 
+WHERE rk > 1;
+
+-- Deleting duplicate records from the geo_location table
+
+WITH t AS (
+    SELECT *, ROW_NUMBER() OVER (PARTITION BY zipcode, latitude, longitude, city, geostate ORDER BY (SELECT NULL)) AS rk 
+    FROM geo_location 
+)
+DELETE FROM geo_location
+WHERE (zipcode, latitude, longitude, city, geostate) IN (
+    SELECT zipcode, latitude, longitude, city, geostate
+    FROM t
+    WHERE rk > 1
+);
+
+-- Note: As geo_location is a fact table, we cannot delete duplicates indiscriminately 
+-- because it may contain valid duplicate entries.
+
+-- Standardizing data types and values
+-- Selecting distinct city names to review the current entries
+
+SELECT DISTINCT city 
+FROM geo_location
+ORDER BY city;
+
+-- Standardizing the city names by capitalizing the first letter and making the rest lowercase
+
+UPDATE geo_location
+SET city = CONCAT(UPPER(LEFT(city, 1)), SUBSTRING(city, 2, LENGTH(city) - 1));
