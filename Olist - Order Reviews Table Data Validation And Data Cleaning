@@ -1,0 +1,151 @@
+-- Use the 'olist' database for the cleaning process
+
+USE olist;
+
+-- Select all records from the order_reviews table to understand the current data
+
+SELECT * FROM order_reviews;
+
+-- Commit the transaction to ensure all changes are saved
+
+COMMIT;
+
+-- CLEANING ORDER_REVIEWS TABLE
+-- Create a temporary table with the same structure as order_reviews
+
+CREATE TABLE temp_reviews
+LIKE order_reviews;
+
+-- Insert all records from order_reviews into the temporary table for processing
+
+INSERT INTO temp_reviews
+SELECT * FROM order_reviews;
+
+-- Understanding the schema of the temporary table
+
+DESCRIBE temp_reviews;
+
+-- Checking the data types and contents of the temporary table
+
+SELECT * FROM temp_reviews;
+
+-- Modify the review_create column to ensure it is of DATE type
+
+ALTER TABLE temp_reviews
+MODIFY review_create DATE;
+
+-- Update the review_create column to convert the date format to a standard DATE type
+
+UPDATE temp_reviews
+SET review_create = STR_TO_DATE(review_create, '%Y-%m-%d');
+
+-- Commit the transaction to ensure the changes are saved
+
+COMMIT;
+
+-- Update the review_answer column to convert the date format to a standard DATETIME type
+
+UPDATE temp_reviews
+SET review_answer = STR_TO_DATE(review_answer, '%d-%m-%Y %H:%i');
+
+-- Modify the review_answer column to ensure it is of DATETIME type
+
+ALTER TABLE temp_reviews
+MODIFY COLUMN review_answer DATETIME;
+
+-- HANDLING THE MISSING VALUES
+-- Count the total records and identify missing values for key fields
+
+SELECT 
+    COUNT(*) AS cnt,
+    SUM(IF(review_id IS NULL OR review_id='', 1, 0)) AS review_id_null,
+    SUM(IF(order_id IS NULL OR order_id='', 1, 0)) AS order_id_null,
+    SUM(IF(review_score IS NULL OR review_score='', 1, 0)) AS review_score_null,
+    SUM(IF(review_title IS NULL OR review_title='', 1, 0)) AS review_title_null,
+    SUM(IF(review_comment IS NULL OR review_comment='', 1, 0)) AS review_comment_null,
+    SUM(IF(review_create IS NULL, 1, 0)) AS review_create_null,
+    SUM(IF(review_answer IS NULL, 1, 0)) AS review_answer_null
+FROM temp_reviews;
+
+-- Identify records with missing review titles or comments
+
+SELECT * FROM temp_reviews 
+WHERE review_title IS NULL OR review_title = ''
+OR review_comment IS NULL OR review_comment = '';
+
+-- Update review titles to 'Untitled Review' where there are comments present
+
+UPDATE temp_reviews 
+SET review_title = 'Untitled Review'
+WHERE (review_comment != '');
+
+-- Rollback the transaction to revert changes if needed
+
+ROLLBACK;
+
+-- Update review titles to 'No Title' where there are no comments
+
+UPDATE temp_reviews 
+SET review_title = 'No Title'
+WHERE review_comment = '';
+
+-- Commit the transaction to ensure the changes are saved
+
+COMMIT;
+
+-- Update review comments to 'No Comments' where the title is 'No Title'
+
+UPDATE temp_reviews
+SET review_comment = 'No Comments'
+WHERE review_title = 'No Title';
+
+-- Commit the transaction to ensure the changes are saved
+
+COMMIT;
+
+-- Check the contents of the temporary reviews table
+
+SELECT * FROM temp_reviews;
+
+-- Count the total number of records in the temporary table
+
+SELECT COUNT(*) FROM temp_reviews;
+
+-- Count the number of records with missing review titles
+
+SELECT 
+    SUM(CASE WHEN review_title IS NULL OR review_title = '' THEN 1 END) AS cnt
+FROM temp_reviews;
+
+-- Commit the transaction to ensure all changes are saved
+
+COMMIT;
+
+-- END OF HANDLING OF MISSING VALUES
+
+-- HANDLING DUPLICATES
+-- Identify duplicates based on key fields in the temporary table
+
+SELECT 
+    review_id, order_id, review_score, review_title, review_comment, review_create, review_answer,
+    COUNT(*) AS cnt 
+FROM temp_reviews
+GROUP BY 
+    review_id, order_id, review_score, review_title, review_comment, review_create, review_answer
+HAVING 
+    COUNT(*) > 1;
+
+-- THERE ARE NO DUPLICATES
+
+-- STANDARDIZING THE TEXT FIELDS
+-- Standardize review comments by capitalizing the first letter and making the rest lower case
+
+UPDATE temp_reviews 
+SET review_comment = CONCAT(UPPER(LEFT(review_comment, 1)), LOWER(SUBSTR(review_comment, 2)))
+WHERE review_comment != 'No Comments';
+
+-- Commit the transaction to ensure the changes are saved
+
+COMMIT;
+
+-- END OF CLEANING OF REVIEWS TABLE
