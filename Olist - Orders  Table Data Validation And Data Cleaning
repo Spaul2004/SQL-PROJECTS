@@ -1,0 +1,165 @@
+-- Use the 'olist' database for the cleaning process
+
+USE olist;
+
+-- Select all records from the orders table to understand the current data
+
+SELECT * FROM orders;
+
+-- Commit the transaction to ensure all changes are saved
+
+COMMIT;
+
+-- Starting cleaning the orders table
+-- Create a temporary table with the same structure as orders
+
+CREATE TABLE temp_orders LIKE orders;
+
+-- Insert all records from the orders table into the temporary table for processing
+
+INSERT INTO temp_orders 
+SELECT * FROM orders;
+
+-- Understanding the schema of the temporary orders table
+
+DESCRIBE temp_orders;
+
+-- Select all records from the temporary orders table to verify the data
+
+SELECT * FROM temp_orders;
+
+-- Handling missing values
+-- Count the total records and identify missing values for key fields
+
+SELECT 
+    COUNT(*) AS cnt,
+    SUM(IF(order_id='', 1, 0)) AS order_id_null,
+    SUM(IF(customer_id='', 1, 0)) AS customer_id_null,
+    SUM(IF(order_status='', 1, 0)) AS order_status_null,
+    SUM(IF(order_purchase='', 1, 0)) AS order_purchase_null,
+    SUM(IF(order_approved='', 1, 0)) AS order_approved_null,
+    SUM(IF(order_delivered_carrier='', 1, 0)) AS order_delivered_carrier_null,
+    SUM(IF(order_delivered_customer='', 1, 0)) AS order_delivered_customer_null,
+    SUM(IF(order_estimated_delivery='', 1, 0)) AS order_estimated_delivery_null
+FROM temp_orders;
+
+-- Select records from temp_orders where order_approved, order_delivered_carrier, or order_delivered_customer are empty
+
+SELECT * FROM temp_orders
+WHERE order_approved='' OR order_delivered_carrier='' OR order_delivered_customer='';
+
+-- Update temp_orders to set NULL values where order_approved, order_delivered_carrier, or order_delivered_customer are empty
+
+UPDATE temp_orders 
+SET order_approved=NULL 
+WHERE order_approved='';
+
+UPDATE temp_orders 
+SET order_delivered_carrier=NULL 
+WHERE order_delivered_carrier='';
+
+UPDATE temp_orders 
+SET order_delivered_customer=NULL 
+WHERE order_delivered_customer='';
+
+-- Changing the data type to datetime format
+-- Modify the order_purchase column to DATETIME type
+
+ALTER TABLE temp_orders 
+MODIFY order_purchase DATETIME;
+
+-- Modify the order_approved column to DATETIME type  
+
+ALTER TABLE temp_orders 
+MODIFY order_approved DATETIME;
+
+-- Modify the order_delivered_carrier column to DATETIME type
+
+ALTER TABLE temp_orders 
+MODIFY order_delivered_carrier DATETIME;
+
+-- Modify the order_delivered_customer column to DATETIME type
+
+ALTER TABLE temp_orders 
+MODIFY order_delivered_customer DATETIME;
+
+-- Modify the order_estimated_delivery column to DATETIME type
+
+ALTER TABLE temp_orders 
+MODIFY order_estimated_delivery DATETIME;
+
+-- Dealing with duplicates
+-- Select all records from the temporary orders table
+
+SELECT * FROM temp_orders;
+
+-- Identify potential duplicates based on key fields in the temp_orders table
+
+SELECT 
+    order_id, customer_id, order_status, order_purchase, order_approved, order_delivered_carrier, order_delivered_customer, order_estimated_delivery
+    , COUNT(*) AS cnt 
+FROM 
+    temp_orders 
+GROUP BY 
+    order_id, customer_id, order_status, order_purchase, order_approved, order_delivered_carrier, order_delivered_customer, order_estimated_delivery
+HAVING
+    COUNT(*) > 1;
+
+-- Commit the transaction to ensure the changes are saved
+
+COMMIT;
+
+-- There are no duplicates found in the temp_orders table
+
+-- Standardizing the formats
+-- Select distinct order_status values from temp_orders
+
+SELECT DISTINCT order_status FROM temp_orders;
+
+-- Update order_status to ensure consistent capitalization
+
+UPDATE temp_orders 
+SET order_status = CONCAT(UPPER(LEFT(order_status, 1)), SUBSTR(order_status, 2));
+
+-- Identifying outliers
+-- Use a CTE to calculate the difference in days between order_purchase and order_approved
+
+WITH t AS (
+    SELECT 
+        (TIMESTAMPDIFF(DAY, order_purchase, order_approved)) AS diff
+    FROM temp_orders
+    ORDER BY diff DESC
+)
+
+-- Calculate the average difference in days
+
+SELECT AVG(diff) FROM t;
+
+-- Select records from temp_orders where the difference in days is 187
+
+SELECT * 
+FROM temp_orders
+WHERE TIMESTAMPDIFF(DAY, order_purchase, order_approved) = 187;
+
+-- Delete the record with a difference of 187 days
+
+DELETE
+FROM temp_orders
+WHERE TIMESTAMPDIFF(DAY, order_purchase, order_approved) = 187;
+
+-- Commit the transaction to ensure the changes are saved
+
+COMMIT;
+
+-- Truncate the original orders table to prepare for new data
+
+TRUNCATE orders;
+
+-- Insert the cleaned data from the temporary table into the original orders table
+
+INSERT INTO orders 
+SELECT * FROM temp_orders;
+
+-- Select all records from the cleaned orders table
+
+SELECT * FROM orders;
