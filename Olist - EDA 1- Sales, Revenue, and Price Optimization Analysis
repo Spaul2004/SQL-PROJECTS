@@ -385,22 +385,66 @@ ORDER BY freight DESC
       AND o.order_status='Delivered' OR o.order_status='Shipped'
        GROUP BY state
        ORDER BY freight DESC
+-- state with the code SP has the highest freight value 
+
+## Q9. What is the product-order ratio? And its variation over time.
+
+ WITH t AS ( SELECT
+     order_id,COUNT(product_id) AS cnt
+      FROM order_items
+        GROUP BY
+         order_id)
+        SELECT
+         YEAR(order_purchase) AS year,
+          ROUND((SUM(cnt)/COUNT(order_id)),2) AS product_order_ratio
+          FROM t
+            JOIN orders o  USING(order_id)
+             GROUP BY year;
+ -- the product to  order ratio is the highest in 2016 i.e 1.19 and was constant in 2017 and 2018 i. e 1.14
+   
+## Q10. Who are the top 1% sellers in terms of product counts?
 
 
-- g. variation with zipcode
-SELECT
-c.customer_zipcode AS zipcode , ROUND(SUM(oi.freight_value),2) AS freight
-FROM
-order_items oi
-JOIN orders o
-ON oi.order_id=o.order_id
-JOIN customers c
-ON o.customer_id=c.customer_id
+WITH t1 AS (SELECT
+s.seller_id,COUNT(oi.product_id) AS product_cnt
+FROM sellers s
+JOIN order_items oi ON s.seller_id=oi.seller_id
+ JOIN orders o ON o.order_id=oi.order_id
 WHERE o.order_status!='Canceled'
-AND o.order_status='Delivered' OR o.order_status='Shipped'
-GROUP BY zipcode
-ORDER BY freight DESC
+GROUP BY s.seller_id
+ORDER BY
+product_cnt),t2 AS  (SELECT
+seller_id,(product_cnt*100/
+(SELECT COUNT(product_id) FROM products)) percentage
+FROM t1)
+SELECT seller_id,percentage
+FROM t2
+WHERE percentage<=1
+
+-- 70a12e78e608ac31179aea7f8422044b,
+1da3aeb70d7989d1e6d9b0e887f97c23,
+634964b17796e64304cadf1ad3050fb7,
+855668e0971d4dfd7bef1b6a4133b41b,
+c3cfdc648177fdbbbb35635a37472c53,
+fe2032dab1a61af8794248c8196565c9,
+88460e8ebdecbfecb5f9601833981930  are the top 1% sellers 
 
 
 
+## Q11. What is the revenue share per customer ?
 
+SELECT 
+    ROUND((SUM(payment_value) / COUNT(c.customer_id)), 2) AS rev_per_customer
+FROM 
+    order_payments op
+JOIN 
+    orders o USING(order_id)
+JOIN 
+    customers c ON o.customer_id = c.customer_id
+WHERE 
+    o.order_status != 'Canceled';
+
+-- the  avg revenue share per customer is 153.7 
+
+ -- but revneue per customer was the highest is 
+    2016 i.e 169 , and in 2017 i.e 152.15, 2018 i.e 154.93
