@@ -13,6 +13,10 @@
          
           -- The total revenue generated is 14,2507
 
+
+
+
+
             SELECT 
   YEAR(o.order_purchase) AS year, ROUND(IFNULL(SUM(op.payment_value),0),0) AS reveue
     FROM 
@@ -24,7 +28,11 @@
           GROUP BY 
            YEAR(o.order_purchase)
             ORDER  BY 
-             year;  -- Highest Revenue in 2018 i.e 8451925 , 2017 i.e 6922571, 2016 i.e 46586
+             year;  
+ -- Highest Revenue in 2018 i.e 8451925 , 2017 i.e 6922571, 2016 i.e 46586
+
+
+
 
  ## Q2.  What is the average order value (AOV) on Olist, 
          and how does this vary by product category or payment method?
@@ -38,5 +46,361 @@
         o.order_status!='Canceled';    -- AOV is 154 
 
 
+
+
+-- AOV variation with product_category
+
+     WITH CTE AS (SELECT
+      p.product_category AS Category,
+       ROUND(AVG(op.payment_value),0) AS average_order_value
+     FROM order_payments op
+       JOIN orders o USING (order_id)
+        JOIN order_items oi ON o.order_id=oi.order_id
+         JOIN products p ON oi.product_id=p.product_id
+          WHERE o.order_status!='Canceled'
+            GROUP BY p.product_category
+                ORDER BY ROUND(AVG(op.payment_value),0) DESC )
+                  SELECT
+                   pt.category_translation,
+                    CTE.average_order_value
+                  FROM CTE
+                    JOIN product_translation pt
+                     ON CTE.Category=pt.category
+                      ORDER BY CTE.average_order_value DESC;
+
+-- the highest average order values is for the product category computers i.e 1269 and then of fixed telephony i.e 769 
+ and the lowest AOV is of home comfort 2 i.e 55 and flowers i.e 67 
+
         
-             
+-- AOV variation with payment method 
+
+SELECT op.payment_type,
+ROUND(AVG(op.payment_value),0) AS average_order_value
+FROM
+order_payments op
+JOIN orders o USING(order_id)
+WHERE o.order_status!='Canceled'
+GROUP BY
+op.payment_type
+ORDER BY
+ROUND(AVG(op.payment_value),0) DESC;
+
+-- highest AOV is for credit card users  i.e 163 and the lowest for voucher i.e 63
+
+
+## Q3.Which product categories have the highest profit margins on Olist, and how can the 
+       company increase profitability across different categories?
+
+
+WITH CTE AS (SELECT p.product_category,
+ROUND((SUM((op.payment_value-oi.freight_value))*100/SUM(op.payment_value)),2)
+AS profit_margins
+FROM order_payments op
+JOIN orders o USING (order_id)
+JOIN order_items oi ON o.order_id=oi.order_id
+JOIN products p ON oi.product_id=p.product_id
+WHERE o.order_status!='Canceled'
+AND o.order_status!='Unavailable'
+AND p.product_category IS NOT NULL
+GROUP BY product_category
+ORDER BY profit_margins DESC)
+SELECT pt.category_translation AS Category,CTE.profit_margins
+FROM CTE
+JOIN product_translation pt
+ON CTE.product_category=pt.category
+ORDER BY profit_margins DESC;
+
+-- Most of the margins are from the category of fixed telephony i.e 97, computers i.e 96
+   and the lowest margins are from furnitures mattress i.e 71 and home comfort 2 i.e 75.37 percentage 
+
+
+## Q4. What is the median number of orders placed by each customer?
+
+WITH t AS (SELECT
+customer_id,COUNT(order_id) AS cnt
+FROM orders
+GROUP BY
+customer_id)
+SELECT ROUND(AVG(cnt),2) AS median
+FROM
+(
+SELECT
+cnt
+,ROW_NUMBER()OVER(ORDER BY cnt) AS row_num,
+COUNT(*)OVER() AS total_rows
+FROM t ) AS subquery
+WHERE
+row_num IN (FLOOR((total_rows + 1) / 2), CEIL((total_rows + 1) / 2));
+
+-- the median number of orders placed by each customer is 1 .
+
+
+
+## Q5. Which product category brings the highest revenue 
+        each year?and also find which bring the most losses 
+
+
+
+
+-- Highest revenue 
+
+WITH t1 AS (SELECT
+YEAR(o.order_purchase) AS year,p.product_category,
+ROUND(SUM(op.payment_value),2) AS revenue ,
+DENSE_RANK()OVER(PARTITION BY YEAR(o.order_purchase) ORDER BY SUM(op.payment_value) DESC ) AS rk
+FROM
+order_payments op
+JOIN orders o USING(order_id)
+JOIN order_items oi ON o.order_id=oi.order_id
+JOIN products p ON oi.product_id=p.product_id
+WHERE
+o.order_status!='Canceled' AND  o.order_delivered_customer IS NOT  NULL
+GROUP BY
+product_category,year)
+SELECT year,pt.category_translation AS category , t1.revenue
+FROM
+t1
+JOIN product_translation pt
+ON t1.product_category=pt.category
+WHERE t1.rk=1
+ORDER BY
+year ASC ,revenue DESC;  
+
+-- 2016 - Furniture decor i.e 10699, 2017- bed bath table i.e 786557 ,
+     2018 - health beauty i.e 1008401
+
+
+-- Lowest revenue 
+WITH t1 AS (SELECT 
+YEAR(o.order_purchase) AS year,p.product_category,
+ROUND(SUM(op.payment_value),2) AS revenue ,
+DENSE_RANK()OVER(PARTITION BY YEAR(o.order_purchase) ORDER BY SUM(op.payment_value) ASC ) AS rk
+FROM
+order_payments op
+JOIN orders o USING(order_id)
+JOIN order_items oi ON o.order_id=oi.order_id
+JOIN products p ON oi.product_id=p.product_id
+WHERE
+o.order_status!='Canceled' AND  o.order_delivered_customer IS NOT  NULL
+GROUP BY
+product_category,year)
+SELECT year,pt.category_translation AS category , t1.revenue
+FROM
+t1
+JOIN product_translation pt
+ON t1.product_category=pt.category
+WHERE t1.rk=1
+ORDER BY
+year ASC ,revenue DESC
+
+
+-- 2016 - 'Fashion_male_clothing 'i.e '35.86', 2017- 'Diapers_and_hygiene
+' i.e '199.4' , 2018 - 'Cds_dvds_musicals 'i.e '117.58'
+
+
+
+-- Highest Profits
+
+ WITH CTE AS (SELECT
+    YEAR(o.order_purchase) AS year,p.product_category,
+    ROUND(SUM((op.payment_value-oi.freight_value)),2)
+AS diff,DENSE_RANK()OVER
+(PARTITION BY  YEAR(o.order_purchase)
+ORDER BY SUM((op.payment_value-oi.freight_value)) DESC ) AS rk
+FROM order_payments op
+JOIN orders o USING (order_id)
+JOIN order_items oi ON o.order_id=oi.order_id
+JOIN products p ON oi.product_id=p.product_id
+WHERE o.order_status!='Canceled'
+AND o.order_status!='Unavailable'
+AND p.product_category IS NOT NULL
+GROUP BY product_category,year ORDER BY year)
+SELECT pt.category_translation AS Category,CTE.diff
+FROM CTE JOIN product_translation pt
+ON CTE.product_category=pt.category WHERE CTE.rk=1
+ORDER BY diff DESC;
+-- Highest profit - health beauty i.e 915706 , bed bath table 697400 
+ , furniture decor  i.e 9666.42
+
+-- Losses - fashion male clothing  i.e 24.9 , cds dvds musical i.e 65, diapers and hygiene 
+    i.e 175.7
+
+
+
+## Q6.Which sales representative closed the most and least  deals in 2018?
+
+   SELECT
+      oi.seller_id,COUNT(op.order_id) AS deals_count
+     FROM
+      orders o
+       JOIN
+        order_payments op ON o.order_id=op.order_id
+         JOIN order_items o
+        ON o.order_id=oi.order_id
+         WHERE
+          YEAR(order_purchase)=2018
+           AND order_status!='Canceled'
+           GROUP BY
+            seller_id
+             ORDER BY deals_count DESC
+              LIMIT 1;
+
+-- seller id '955fee9216a65b617aa5c0531780ce60'  closed the most deals i.e 1300 in 2018
+
+
+## Q7. Buisness segments wich closed the most and least deals 
+
+  WITH CTE AS (SELECT
+p.product_category,COUNT(op.order_id) AS deals_count
+FROM order_payments op
+JOIN orders o ON o.order_id=op.order_id
+JOIN order_items oi ON o.order_id=oi.order_id
+JOIN products p ON oi.product_id=p.product_id
+WHERE YEAR(o.order_purchase)=2018
+AND o.order_status!='Canceled'
+GROUP BY
+product_category)
+SELECT
+ot.category_translation AS Buisness_Segment,CTE.deals_count AS Deals
+FROM
+product_translation ot
+JOIN CTE ON ot.category=CTE.product_category
+ORDER BY
+Deals DESC
+
+--highest deals  'Bed_bath_table'- '6158',Health_beauty -  6087
+-- lowest deals  cds dvds musicls - 1
+
+
+
+## Q8. Analysing freight value 
+
+-- variation with product category 
+
+WITH CTE AS (SELECT
+ p.product_category, ROUND(SUM(oi.freight_value),2) AS freight
+FROM order_payments op
+  JOIN orders o ON o.order_id=op.order_id
+   JOIN order_items oi ON o.order_id=oi.order_id
+    JOIN products p ON oi.product_id=p.product_id
+     WHERE o.order_status!='Canceled'
+      AND o.order_status='Delivered' OR o.order_status='Shipped'
+       GROUP BY
+        product_category
+         ORDER BY freight DESC)
+           SELECT pt.category_translation AS Product_Category,CTE.freight
+           FROM product_translation pt
+             JOIN CTE ON CTE.product_category=pt.category
+              ORDER BY
+               freight DESC
+-- Highest - bed bath table i.e 217049 , health beauty - 186862
+ -- Lowest - security and services i.e 41.22 , fashion childrens clothing i.e 78.72
+
+
+# variation with product parameters
+
+- a. variation with product weight
+SELECT
+p.product_weight_grams AS product_weight, ROUND(SUM(oi.freight_value),2) AS freight
+FROM order_payments op
+JOIN orders o ON o.order_id=op.order_id
+JOIN order_items oi ON o.order_id=oi.order_id
+JOIN products p ON oi.product_id=p.product_id
+WHERE o.order_status!='Canceled'
+AND o.order_status='Delivered' OR o.order_status='Shipped'
+GROUP BY
+product_weight
+ORDER BY freight DESC
+-- products of weight above 200 kg has the highest freight value 
+
+- b. variation with product length
+SELECT
+p.product_length_cm AS product_length, ROUND(SUM(oi.freight_value),2) AS freight
+FROM order_payments op
+JOIN orders o ON o.order_id=op.order_id
+JOIN order_items oi ON o.order_id=oi.order_id
+JOIN products p ON oi.product_id=p.product_id
+WHERE o.order_status!='Canceled'
+AND o.order_status='Delivered' OR o.order_status='Shipped'
+GROUP BY
+product_length
+ORDER BY freight DESC
+-- products with length 16,20and 30 have the highest freight value.
+
+c. variation with product height
+SELECT
+p.product_height_cm AS product_height, ROUND(SUM(oi.freight_value),2) AS freight
+FROM order_payments op
+JOIN orders o ON o.order_id=op.order_id
+JOIN order_items oi ON o.order_id=oi.order_id
+JOIN products p ON oi.product_id=p.product_id
+WHERE o.order_status!='Canceled'
+AND o.order_status='Delivered' OR o.order_status='Shipped'
+GROUP BY
+product_height
+ORDER BY freight DESC
+-- product with height within the range 10-20 has the highest freight value 
+
+- d. variation with product width 
+SELECT
+p.product_width_cm AS product_width, ROUND(SUM(oi.freight_value),2) AS freight
+FROM order_payments op
+JOIN orders o ON o.order_id=op.order_id
+JOIN order_items oi ON o.order_id=oi.order_id
+JOIN products p ON oi.product_id=p.product_id
+WHERE o.order_status!='Canceled'
+AND o.order_status='Delivered' OR o.order_status='Shipped'
+GROUP BY
+product_width
+ORDER BY freight DESC
+-- products with the product of widht 11 and 20 has the highest freight value and 
+ with width of 103 has the lowest freight value 
+
+- e. variation with city
+SELECT
+c.customer_city AS city , ROUND(SUM(oi.freight_value),2) AS freight
+FROM
+order_items oi
+JOIN orders o
+ON oi.order_id=o.order_id
+JOIN customers c
+ON o.customer_id=c.customer_id
+WHERE o.order_status!='Canceled'
+AND o.order_status='Delivered' OR o.order_status='Shipped'
+GROUP BY city
+ORDER BY freight DESC
+-- sao paulo and rio de janeiro ha the highest freight value 
+ -- and monte alegre has the lowest freight value 
+
+- f. variation with state
+      SELECT
+       c.customer_state AS state , ROUND(SUM(oi.freight_value),2) AS freight
+       FROM
+       order_items oi
+        JOIN orders o
+         ON oi.order_id=o.order_id
+          JOIN customers c
+           ON o.customer_id=c.customer_id
+            WHERE o.order_status!='Canceled'
+      AND o.order_status='Delivered' OR o.order_status='Shipped'
+       GROUP BY state
+       ORDER BY freight DESC
+
+
+- g. variation with zipcode
+SELECT
+c.customer_zipcode AS zipcode , ROUND(SUM(oi.freight_value),2) AS freight
+FROM
+order_items oi
+JOIN orders o
+ON oi.order_id=o.order_id
+JOIN customers c
+ON o.customer_id=c.customer_id
+WHERE o.order_status!='Canceled'
+AND o.order_status='Delivered' OR o.order_status='Shipped'
+GROUP BY zipcode
+ORDER BY freight DESC
+
+
+
+
