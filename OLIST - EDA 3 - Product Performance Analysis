@@ -1,0 +1,45 @@
+Q1. How many orders were placed on Olist, and how does this vary by month or season?
+
+SELECT
+MONTHNAME(o.order_purchase) AS mnth, COUNT(op.order_id) AS order_count
+FROM
+order_payments op
+JOIN orders o USING(order_id)
+GROUP BY
+mnth
+ORDER BY order_count DESC;
+
+-- total orders - 103885
+--top 3 months (Aug-11248,may-11079,july-10824)
+ -- last 3 months(sep-4535,oct -5205,dec-5896)
+
+
+
+Q2.  What are the most popular product categories on
+ Olist BASED ON NUMBER OF ORDERS , and how do their ORDER NUMBER compare to each other?
+
+         WITH t1 AS (SELECT
+YEAR(o.order_purchase) AS year,p.product_category,
+ROUND(COUNT(op.order_id),2) AS total_orders ,
+DENSE_RANK()OVER(PARTITION BY YEAR(o.order_purchase)
+ORDER BY COUNT(op.order_id)
+DESC ) AS rk	
+FROM order_payments op
+JOIN orders o USING(order_id)
+JOIN order_items oi ON o.order_id=oi.order_id
+JOIN products p ON oi.product_id=p.product_id
+WHERE
+o.order_status!='Canceled' AND  o.order_delivered_customer IS NOT  NULL
+GROUP BY product_category,year,payment_type)
+SELECT year,pt.category_translation AS category , t1.total_orders
+FROM t1
+JOIN product_translation pt
+ON t1.product_category=pt.category
+WHERE t1.rk<=5
+ORDER BY year ASC ,total_orders DESC;
+
+-- in 2016 top  and last product are (furniture decor , health beauty , perfumery  and 
+ last is housewares ), 
+ -- in 2017 top and last products are(bed bath table ,furniture decor ,sports leisure 
+health beauty and the last is housewares ),
+ -- in 2018 (bed bath table ,health beauty ,sports leisure and last is housewares )
