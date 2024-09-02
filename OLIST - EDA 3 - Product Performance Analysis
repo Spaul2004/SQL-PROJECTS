@@ -43,3 +43,154 @@ ORDER BY year ASC ,total_orders DESC;
  -- in 2017 top and last products are(bed bath table ,furniture decor ,sports leisure 
 health beauty and the last is housewares ),
  -- in 2018 (bed bath table ,health beauty ,sports leisure and last is housewares )
+
+
+
+Q3. Which product category has the TOP 5 number of canceled orders each year?
+
+WITH CTE AS(SELECT
+YEAR(o.order_purchase) AS year,p.product_category AS category , COUNT(*) AS cancel_cnt ,
+DENSE_RANK()OVER(PARTITION BY YEAR(o.order_purchase) ORDER  BY COUNT(*) DESC ) AS rk
+FROM orders o
+JOIN order_items oi USING(order_id)
+JOIN products p ON oi.product_id=p.product_id
+WHERE o.order_status='Canceled'
+GROUP BY year,category
+ORDER BY year, cancel_cnt DESC)
+SELECT CTE.year,pt.category_translation,CTE.cancel_cnt
+FROM CTE JOIN product_translation pt
+ON CTE.category=pt.category
+WHERE CTE.rk<=5
+ORDER BY CTE.year,CTE.cancel_cnt DESC
+
+-- in 2016 toys ,health_beauty,auto,sports_leisure,perfumery
+ -- in 2017 sports_leisure,housewares,computer_accesories,auto,furniture_decor
+ -- in 2018 health beauty,housewares,computer accesories ,sports_leisures,furniture decor
+
+
+
+-- Numbers of orders where payment value is less than 10
+
+SELECT
+c.customer_city AS city,COUNT(op.order_id) AS order_cnt
+FROM
+order_payments op
+JOIN
+orders o USING(order_id)
+JOIN customers c ON o.customer_id=c.customer_id
+WHERE
+op.payment_value<10
+GROUP BY
+city
+ORDER BY
+COUNT(op.order_id) DESC;
+
+-- sao paulo i.e 288 and rio de janeiro i.e 112 had the most orders below the value of 10
+
+
+
+Q4. Average weight, length, height, width for a product category
+
+   WITH CTE AS (SELECT
+    product_category,
+     ROUND(AVG(product_weight_grams),2) AS avg_weight,
+      ROUND(AVG(product_length_cm),2) AS avg_length,
+       ROUND(AVG(product_height_cm),2) AS avg_height,
+        ROUND(AVG(product_width_cm),2) AS avg_width
+   FROM products
+     GROUP BY product_category)SELECT
+    pt.category_translation AS category,
+     CTE.avg_weight,CTE.avg_length,CTE.avg_height,CTE.avg_width
+   FROM product_translation pt
+     JOIN CTE ON pt.category=CTE.product_category
+      ORDER BY
+	CTE.avg_weight DESC,CTE.avg_length DESC ,CTE.avg_height DESC,
+     CTE.avg_width DESC
+
+
+
+ Q5.Average Volume of Box for each Product Category
+
+WITH CTE AS (SELECT
+product_category,
+ROUND(AVG(product_weight_grams),2) AS avg_weight,
+ROUND(AVG(product_length_cm),2) AS avg_length,
+ROUND(AVG(product_height_cm),2) AS avg_height,
+ROUND(AVG(product_width_cm),2) AS avg_width
+FROM products
+GROUP BY product_category)SELECT
+pt.category_translation AS category,
+ROUND((CTE.avg_length*CTE.avg_height*CTE.avg_width),2) AS avg_volume
+FROM product_translation pt
+JOIN CTE ON pt.category=CTE.product_category
+ORDER BY
+ROUND((CTE.avg_length*CTE.avg_height*CTE.avg_width),2) DESC;
+
+-- office furniture,kitchen_dining_laundry,garden_furnniture has the highest avg volume
+
+
+
+Q6. Correlation between freight value and product weight, length, height, volume and price
+
+WITH product_freight
+AS(SELECT oi.freight_value,
+pr.product_weight_grams,
+pr.product_length_cm,
+pr.product_height_cm,
+pr.product_width_cm,
+pr.product_length_cm ::real * pr.product_height_cm::real * pr.product_width_cm::real AS volume,
+oi.price
+FROM products pr
+JOIN order_items oi USING(product_id))
+SELECT CORR(freight_value, product_length_cm)::real AS corr_length,
+CORR(freight_value, product_height_cm)::real AS corr_height,
+CORR(freight_value, product_width_cm)::real AS corr_width,
+CORR(freight_value, volume)::real AS corr_volume,
+CORR(freight_value,product_weight_grams)::real AS corr_weight,
+CORR(freight_value, price)::real AS corr_price
+FROM product_freight
+
+
+
+Q7. product performance over the years based on ratings
+
+
+         WITH CTE AS (SELECT
+         YEAR(o.order_purchase) AS year , p.product_category , ore.review_score
+        FROM
+         order_reviews ore JOIN order_items oi USING(order_id)
+          JOIN
+          orders o ON o.order_id=oi.order_id
+           JOIN
+           products p ON oi.product_id=p.product_id)
+      SELECT
+       CTE.year,pt.category_translation,CTE.review_score
+      FROM
+       product_translation pt
+        JOIN CTE ON pt.category=CTE.product_category
+         ORDER BY
+          YEAR , review_score DESC
+
+
+Q8. What are the top ten categories having the heighest product counts?
+
+
+WITH CTE AS (SELECT
+p.product_category,COUNT(oi.product_id) AS product_cnt,
+DENSE_RANK()OVER
+( ORDER BY COUNT(oi.product_id) DESC) AS rk
+FROM
+products p
+JOIN order_items oi USING(product_id)
+GROUP BY
+p.product_category)
+SELECT pt.category_translation,CTE.product_cnt
+FROM
+product_translation pt
+JOIN CTE ON pt.category=CTE.product_category
+WHERE CTE.rk<=10
+ORDER BY
+CTE.product_cnt DESC
+
+-- the top ten categories are bed_bath_table,health_beauty,sports_leisure,furniture_decor,
+ -- computer_accesories,housewares,watches_gifts,telephony,garden_tools,auto
