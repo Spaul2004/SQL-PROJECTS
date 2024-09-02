@@ -1,0 +1,43 @@
+Q1. How many sellers are active on Olist, and how does this number change over time?
+
+SELECT
+YEAR(o.order_purchase) AS year, COUNT(oi.seller_id) AS seller_cnt
+FROM
+orders o
+JOIN order_items oi USING(order_id)
+GROUP BY
+year
+ORDER BY
+year ,COUNT(oi.seller_id) DESC;
+
+--2016 - 370 , 2017 - 50864 , 2018 - 61416
+
+-- What is the distribution of seller ratings on Olist,
+
+SELECT
+YEAR(o.order_purchase) AS year , oi.seller_id,ore.review_score
+FROM
+order_reviews ore
+JOIN order_items oi USING(order_id)
+JOIN orders o ON oi.order_id=o.order_id
+ORDER BY
+year
+
+-- most of the 5 and 4 star ratings are given in the year 2016 and 2017 
+
+
+
+-- What is the distribution of
+-- seller ratings on Olist,and how does this impact sales performance?
+
+SELECT
+YEAR(o.order_purchase) AS year , oi.seller_id,op.payment_value,ore.review_score
+FROM
+order_reviews ore
+JOIN order_items oi USING(order_id)
+JOIN orders o ON oi.order_id=o.order_id
+JOIN order_payments op ON o.order_id=op.order_id
+WHERE
+o.order_status!='Canceled'
+ORDER BY
+year, op.payment_value DESC
