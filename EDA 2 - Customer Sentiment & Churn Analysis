@@ -1,0 +1,171 @@
+Q1. What is the average customer rating for products 
+ sold on Olist, and how does this impact sales performance?
+
+
+-- avg product rating
+SELECT
+AVG(orv.review_score) AS avg_rating
+FROM
+order_reviews orv
+JOIN order_items oi
+USING(order_id)
+JOIN products P ON oi.product_id=p.product_id
+ -- avg rating is 4.0324
+
+
+
+-- RATING CORRREALTION WITH SALES OVER THE YEARS 
+
+SELECT
+YEAR(o.order_purchase) AS year,
+AVG(orv.review_score) AS avg_rating,
+ROUND(SUM(op.payment_value),2) AS sales
+FROM
+order_reviews orv
+JOIN order_items oi USING(order_id)
+JOIN products p ON oi.product_id = p.product_id
+JOIN orders o ON oi.order_id = o.order_id
+JOIN order_payments op ON o.order_id = op.order_id
+WHERE o.order_status != 'Canceled'
+GROUP BY
+year
+ORDER BY
+year,avg_rating DESC,sales DESC
+
+-- 2016(avg rating - 3.68 sales - 69250),2017(rating-4.05 sales - 9019134.27),
+  -- 2018 (avg rating - 4.03 sales 10948235.49)
+
+
+Q2.Which payment methods are most commonly used by Olist customers, and how 
+     does this vary by product category or geographic region?
+
+
+-- popularity trend of payment methods
+
+SELECT
+payment_type, COUNT(payment_type) AS cnt
+FROM
+order_payments op
+JOIN orders o USING(order_id)
+GROUP BY
+payment_type
+
+-- credit card - 76794,baleto - 19784, voucher - 5775,debit card - 1529
+
+-- popularity trend of payment methods across categories
+SELECT
+pt.category_translation AS catgeory,payment_type,
+COUNT(payment_type) AS cnt
+FROM order_payments op
+JOIN orders o USING(order_id)
+JOIN order_items oi
+ON o.order_id=oi.order_id
+JOIN products p
+ON oi.product_id=p.product_id
+JOIN product_translation pt
+ON p.product_category=pt.category
+GROUP BY pt.category_translation ,payment_type
+ORDER BY pt.category_translation ,cnt DESC ;
+
+
+
+
+-- What is the customers growth rate?
+
+WITH CTE AS (SELECT
+YEAR(order_purchase) AS year, COUNT(customer_id) AS old_cnt,
+IFNULL(LEAD( COUNT(customer_id))OVER(ORDER BY COUNT(customer_id)),0) AS new_cnt
+FROM
+orders
+GROUP BY
+year
+ORDER BY
+year)
+SELECT
+year,CONCAT((((new_cnt-old_cnt)/old_cnt)*100),' %' )AS growth_rate
+FROM CTE
+WHERE new_cnt!=0
+
+-- 2016 - 13650%, 2017 - 19.7557 %
+
+
+-- variation of payment_types over the years with the most selling products
+
+
+WITH t1 AS (SELECT
+YEAR(o.order_purchase) AS year,p.product_category,
+ROUND(SUM(op.payment_value),2) AS revenue ,
+DENSE_RANK()OVER(PARTITION BY YEAR(o.order_purchase) ORDER BY SUM(op.payment_value)
+DESC ) AS rk,op.payment_type
+FROM order_payments op
+JOIN orders o USING(order_id)
+JOIN order_items oi ON o.order_id=oi.order_id
+JOIN products p ON oi.product_id=p.product_id
+WHERE
+o.order_status!='Canceled' AND o.order_delivered_customer IS NOT NULL
+GROUP BY product_category,year,payment_type)
+SELECT year,pt.category_translation AS category , t1.revenue,t1.payment_type
+FROM t1
+JOIN product_translation pt
+ON t1.product_category=pt.category
+WHERE t1.rk<=5
+ORDER BY year ASC ,revenue DESC;
+
+-- in 2016 the top 3 best selling products had most of the sales from credit card , 
+ this trend also continued in 2017 and 2018 
+
+
+-- payment-type trends over the years
+
+SELECT
+YEAR(o.order_purchase) AS year , op.payment_type, COUNT(op.payment_type) AS cnt
+FROM
+orders o
+JOIN order_payments op USING (order_id)
+GROUP BY
+year,payment_type
+ORder BY year ,cnt DESC;
+
+-- 2016 (credit card - 257, boleto - 63),2017 (credit card - 34568,boleto 9508)
+  -- 2018 (credit card - 41969,boleto-10213), but over the years 
+    -- debit card had been least used for payment 
+
+
+
+ -- What is the median number of payment installments each year?
+
+WITH ranked_data AS (
+SELECT
+YEAR(o.order_purchase) AS year,
+op.payment_installments,
+
+ROW_NUMBER() OVER (PARTITION BY YEAR(o.order_purchase)
+ORDER BY op.payment_installments) AS row_num,
+COUNT(*) OVER (PARTITION BY YEAR(o.order_purchase)) AS total_count
+FROM
+order_payments  AS op JOIN orders  AS o ON o.order_id=op.order_id
+)
+SELECT
+year,
+ROUND(AVG(payment_installments),1) AS median_value
+FROM
+ranked_data
+WHERE
+row_num IN (FLOOR((total_count + 1) / 2), CEIL((total_count + 1) / 2))
+GROUP BY
+year;
+
+-- the numbe ris constant i.e 2 for the year 2016 and 17 but it decreased to 1 on 2018 
+
+
+
+-- numbers of orders per customer
+
+SELECT
+ROUND((COUNT(oi.order_id)/COUNT(o.customer_id)),2) AS orders_per_customer
+FROM
+order_payments op
+JOIN orders o USING (order_id)
+JOIN order_items oi ON o.order_id=oi.order_id
+
+-- orders per customer  is 1 
