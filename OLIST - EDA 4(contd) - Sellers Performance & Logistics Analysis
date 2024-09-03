@@ -41,3 +41,420 @@ WHERE
 o.order_status!='Canceled'
 ORDER BY
 year, op.payment_value DESC
+
+
+
+-- What is the average order cancellation rate on
+-- Olist and how does this impact sales and seller performance?
+
+
+SELECT
+      YEAR(o.order_purchase) AS year,
+      (COUNT(oi.order_id)*100/(SELECT COUNT(order_id) FROM order_items))
+       AS cancel_rate,ROUND(SUM(op.payment_value),0) AS sales
+     FROM
+      orders o JOIN order_items oi USING(order_id)
+       JOIN order_payments op ON o.order_id=op.order_id
+       WHERE
+        o.order_status='Canceled'
+          GROUP BY
+           year
+            ORDER BY year
+
+    WITH CTE AS (SELECT
+      YEAR(o.order_purchase) AS year,oi.seller_id,
+      (COUNT(oi.order_id)*100/(SELECT COUNT(order_id) FROM order_items))
+       AS cancel_rate
+    FROM orders o JOIN order_items oi USING(order_id)
+       JOIN order_payments op ON o.order_id=op.order_id
+       WHERE o.order_status='Canceled'
+          GROUP BY year,oi.seller_id
+            ORDER BY year )
+            SELECT CTE.year,CTE.seller_id,CTE.cancel_rate,
+              COUNT(oi.order_id) AS order_cnt
+            FROM order_items oi
+              JOIN CTE ON oi.seller_id=CTE.seller_id
+               GROUP BY CTE.year,CTE.seller_id,CTE.cancel_rate
+			    ORDER BY year, cancel_rate DESC
+
+
+
+-- over order cancellation rate is 0.4811% and 
+ in 2016 cancel rate was 0.0133 and sales was 3988
+ in 2017 cancel rate was 0.2344 and sales were 73358 
+ in 2018 cancel rate was 0.2548 and sales were 72280
+
+
+-- in 2016 seller id 87b740daf17b5d1be335a64164ec6842 had the lowest  cancel rate and 
+ 620c87c171fb2a6dd6e8bb4dec959fc6 with the highest i.e 0.0027
+ -- in 2017 seller id  10ff823eda2b032e2c93d17a7d294736 had the highest cancel rate 
+ i.e 0.0080 and lowest 86649b1632b1c0e6c0bcb2c90a8b75d8 with 0.0009 
+ -- in 2018 sellerid cc419e0650a3c5ba77189a1882b7556a had the highest cancel rate 
+ of 0.0089 and lowest with 2078fe5066350e7d220c0ad3a3bbc6c1 i.e 0.0009
+
+
+
+Q2. What is the on-time delivery rate?
+
+        SELECT
+          YEAR(o.order_purchase) AS year,(COUNT(oi.order_id)/
+          (SELECT COUNT(order_id) FROM order_items
+           ) )*100 AS on_time_rate
+        FROM
+         orders o
+          JOIN order_items oi USING(order_id)
+          WHERE
+	DATE(o.order_delivered_customer)=DATE(o.order_estimated_delivery)
+     GROUP BY
+      year
+
+-- in 2018 it was 0.8655 and in 2017 it was 0.4208 and in 2016 it was 0.0009
+
+
+Q3.  How fast is it for customers to receive an order?
+
+
+WITH CTE AS (SELECT
+YEAR(o.order_purchase) AS year,p.product_category,
+DATEDIFF(order_estimated_delivery,order_delivered_customer) AS date_diff
+FROM
+orders o
+JOIN order_items oi USING(order_id)
+JOIN products p ON oi.product_id=p.product_id
+WHERE o.order_status!='Canceled'
+ORDER BY
+year)
+SELECT
+CTE.year,pt.category_translation,ROUND(AVG(CTE.date_diff),2) AS avg_delivery_time
+FROM
+product_translation pt
+JOIN CTE ON pt.category=CTE.product_category
+
+WHERE CTE.date_diff IS  NOT NULL
+GROUP BY
+CTE.year,pt.category_translation
+ORDER BY year, avg_delivery_time DESC;
+
+-- in 2016  the higehst time was 45 min i.e garden tools , and lowest was office furniture 
+ i.e 15.50
+ -- in 2017 the highest time was 19.28 mins and lowest was fashion children clothes i.e 18.33
+ -- in 2018 the highest time was la cuisine i.e 16 mins  and lowest was home comfort 2 i.e 2 mins 
+
+
+
+
+Q4. What is the average review score of each seller?
+
+           SELECT
+              oi.seller_id,AVG(ore.review_score) avg_rating
+             FROM
+              order_items oi
+               JOIN order_reviews ore USING(order_id)
+                GROUP BY
+                 oi.seller_id
+
+Q5.  -- Which seller has the highest average order value?
+         and in which business segment are they?
+
+
+                 SELECT
+                  oi.seller_id,s.seller_city,ROUND(AVG(op.payment_value),0) AS average_order_value
+                 FROM
+                  order_payments op
+                   JOIN orders o USING(order_id)
+                    JOIN order_items oi ON oi.order_id=o.order_id
+                     JOIN sellers s ON oi.seller_id=s.seller_id
+                     WHERE
+                      o.order_status!='Canceled'
+                       GROUP BY
+                        oi.seller_id,s.seller_city;
+
+-- b37c4c02bda3161a7546a4e6d222d5b2 has the highest aov i.e 9688 and works in sao paulo 
+ -- cf6f6bc4df3999b9c6440f124fb2f687  has the lowets aov i.e 12 and works in sao paulo 
+
+Q6. Frequency of orders delivered every month?
+
+                        SELECT
+                        YEAR(o.order_delivered_customer) AS year,
+                         MONTHNAME(o.order_delivered_customer) AS month,
+                          COUNT(oi.order_id) AS   order_frequency
+                        FROM
+                         orders o
+                          JOIN order_items oi
+                           USING(order_id)
+						   WHERE
+                            o.order_status!='Canceled'
+                             AND YEAR(o.order_delivered_customer) IS NOT NULL
+                              AND  MONTHNAME(o.order_delivered_customer) IS NOT NULL
+                            GROUP BY
+                             year,month
+                              ORDER BY
+							   year,month
+                                ,COUNT(oi.order_id) DESC;
+-- in 2016 its was highets in october  
+ -- in 2017 highest was in december and lowest in january 
+ -- in 2018 highets was in august and lowest in october 
+
+Q7. Deliveries by hour
+
+
+SELECT
+HOUR(o.order_delivered_customer) AS Hour,
+COUNT(oi.order_id) AS order_frequency
+FROM
+orders o
+JOIN order_items oi
+USING(order_id)
+WHERE
+o.order_status!='Canceled' AND
+HOUR(o.order_delivered_customer) IS NOT NULL
+GROUP BY
+Hour
+ORDER BY
+Hour
+,COUNT(oi.order_id) DESC;
+
+-- most of the orders are recieved between the time of 17 to 20 pm and  the lowest between 
+  3-4 pm
+
+
+Q8.  Average difference between estimated and actual delivery by month?
+
+                        WITH CTE AS (SELECT
+                         MONTHNAME(order_delivered_customer) AS month ,
+                          DATEDIFF(order_estimated_delivery,order_delivered_customer) AS diff
+                        FROM
+                         orders
+                          WHERE order_status!='Canceled')
+                    SELECT
+                     month
+                      , AVG(diff) AS average_difference
+                     FROM CTE
+                       WHERE month IS NOT NULL
+                       GROUP BY
+                        month
+                       ORDER BY
+					     month ,AVG(diff) DESC
+
+-- the difference was the highest in june and feb ,
+and the lowest in april to september 
+
+
+Q9. No of Sellers by state?
+
+                          SELECT
+                           s.seller_state, COUNT(oi.seller_id) AS seller_cnt
+                          FROM
+                           order_items oi
+                            JOIN sellers s
+                             USING(seller_id)
+                              GROUP BY
+                               s.seller_state
+
+-- highest number of sellers are from SP i.e 80342  and the lowest in PI i.e 12 
+
+
+Q10. Categories per seller?
+
+                WITH CTE AS (SELECT
+              oi.seller_id,COUNT( DISTINCT p.product_category) AS product_cnt
+                 FROM
+                  products p
+                   JOIN order_items oi USING(product_id)
+                    GROUP BY
+                     oi.seller_id)
+                      SELECT
+                       AVG(product_cnt) AS categories_per_seller
+                         FROM CTE
+
+-- it is 2.0546
+
+
+
+Q11. Average sales per order by seller?
+
+WITH CTE AS (SELECT
+op.order_id,SUM(payment_value) AS sales
+FROM
+order_payments op
+JOIN orders o USING(order_id)
+WHERE o.order_status!='Canceled'
+GROUP BY
+order_id)
+SELECT
+oi.seller_id,ROUND(AVG(CTE.sales),2) AS avg_sales_per_order
+FROM CTE
+JOIN order_items oi USING(order_id)
+GROUP BY
+seller_id
+
+-- b37c4c02bda3161a7546a4e6d222d5b2 has the highest sales per order i.e 9687 
+ and cf6f6bc4df3999b9c6440f124fb2f687 has the lowets sles per order i.e 12.22
+
+Q12. What is the delivery rate?
+SELECT
+ROUND((COUNT(oi.order_id)*100/
+(SELECT COUNT(order_id) FROM order_items)),2) AS delivery_rate
+FROM
+orders o JOIN order_items oi USING(order_id)
+WHERE o.order_status='Delivered'
+
+-- 97.82 is the average delivery rate 
+
+Q13.  What is the average approval time?
+
+
+WITH CTE AS (
+ SELECT
+order_id,
+TIMESTAMPDIFF(MINUTE,order_purchase,order_approved)
+AS approval_time
+FROM
+orders
+WHERE order_status!='Canceled')
+SELECT
+ROUND((AVG(approval_time)/60),2) AS avg_approval_time
+FROM CTE
+WHERE approval_time IS NOT NULL
+
+-- it is 10.34 mins 
+
+
+
+Q14. How does the average approval time change over time?
+
+
+       WITH CTE AS (SELECT
+        order_id,
+         TIMESTAMPDIFF(MINUTE,order_purchase,order_approved)
+          AS approval_time
+       FROM orders
+         WHERE order_status!='Canceled')
+          SELECT
+           YEAR(o.order_purchase) AS year,
+            ROUND((AVG(approval_time)/60),2) AS avg_approval_time
+            FROM CTE
+             JOIN orders o USING(order_id)
+             WHERE approval_time IS NOT NULL
+              GROUP BY year;
+
+-- in 2016 it was 22.44 mins , in 2017 it was 10.14 min and in 2018 it is 10.45  mins 
+
+
+Q15. What is the average carrier delivered time since approval?
+
+
+WITH CTE AS ( SELECT
+order_id,
+TIMESTAMPDIFF(MINUTE,order_approved,
+order_delivered_carrier) AS diff
+FROM
+orders
+WHERE order_status!='Canceled'
+GROUP BY
+order_id)
+SELECT
+ROUND((AVG(diff)/60),2) AS avg_time_since_approval
+FROM CTE
+
+--  it is 67.30 mins
+
+
+Q16. How does the average carrier delivered time change over time?
+ 
+ WITH CTE AS ( SELECT
+                 order_id,
+                  TIMESTAMPDIFF(MINUTE,order_approved,
+                   order_delivered_carrier) AS diff
+                 FROM
+                  orders
+                   WHERE order_status!='Canceled'
+                   GROUP BY
+                    order_id)
+                    SELECT
+                     YEAR(o.order_purchase) AS year,
+                      ROUND((AVG(diff)/60),2) AS avg_time_since_approval
+                    FROM CTE
+                     JOIN orders o USING(order_id)
+                      GROUP BY
+                       year
+                        ORDER BY
+                         year;
+
+-- in 2016 it is 320.40 , in 2017 it is 72.54, in 2018 it is 61.68.
+
+
+
+ Q17. What is the average delivery time of the carrier?
+
+                             WITH CTE AS ( SELECT
+                 order_id,
+                  TIMESTAMPDIFF(MINUTE,order_purchase,
+                   order_delivered_carrier) AS diff
+                 FROM
+                  orders
+                   WHERE order_status!='Canceled'
+                   GROUP BY
+                    order_id)
+                    SELECT
+                     ROUND((AVG(diff)/60),2) AS avg_carrier_time
+                    FROM CTE ;
+
+
+-- it is 77.60 mins 
+
+
+Q18. Most frequent delivery hours in a day?
+
+SELECT
+HOUR(o.order_delivered_customer) AS delivery_hour,
+oi.order_id,
+COUNT(oi.order_id) AS frequency
+FROM
+orders o
+JOIN
+order_items oi USING(order_id)
+WHERE
+o.order_status != 'Canceled'
+GROUP BY
+delivery_hour, order_id
+ORDER BY
+frequency DESC;
+
+-- 17 - 20 pm is the most frequent delivery hours of the day 
+ -- and the lowest is 3-5 pm
+
+
+Q19. What are the most frequent deliverd days during the week?
+
+SELECT
+WEEK(o.order_delivered_carrier) AS week ,
+DAY(o.order_delivered_customer) AS days, oi.order_id, COUNT(oi.order_id) AS frequency
+FROM
+orders o
+JOIN order_items oi USING(order_id)
+WHERE
+o.order_status='Delivered'
+GROUP BY
+week,days,order_id
+ORDER BY frequency DESC;
+
+
+
+Q20. How accurate is the estimated delivery date?
+
+
+        SELECT
+        ( SUM(CASE WHEN datediff(order_estimated_delivery,order_delivered_customer)=0 THEN
+         1 ELSE 0 END)*100/COUNT(oi.order_id)) AS exact_percentage,
+          ( SUM(CASE WHEN datediff(order_estimated_delivery,order_delivered_customer)>0 THEN
+         1 ELSE 0 END)*100/COUNT(oi.order_id)) AS late_percentage,
+          ( SUM(CASE WHEN datediff(order_estimated_delivery,order_delivered_customer)<0 THEN
+         1 ELSE 0 END)*100/COUNT(oi.order_id)) AS early_percentage
+       FROM orders o
+        JOIN order_items oi USING(order_id)
+         WHERE
+          o.order_status='Delivered'
+
+
+-- exact percentage - 1.3158 , late percentage - 92.08 , early percentage - 6.5918
