@@ -1,0 +1,288 @@
+Q1.   Average customer order price by state
+
+WITH CTE AS (SELECT
+c.customer_state,c.customer_id,SUM(oi.price) AS order_price
+FROM customers c
+JOIN orders o USING(customer_id)
+JOIN order_items oi ON o.order_id=oi.order_id
+GROUP BY
+customer_state,customer_id
+ORDER BY
+order_price DESC)
+SELECT
+customer_state, ROUND(AVG(order_price),2) AS avg_order_price
+FROM CTE
+GROUP BY customer_state
+ORDER BY
+ROUND(AVG(order_price),2) DESC;
+
+-- PB has the highest i.e 216.67 , AP i.e 198.15 , AC i.e 197.32 , lowest SP - 125.75
+
+
+ Q2.Number of unique customer by state?
+
+SELECT
+customer_state, COUNT(DISTINCT customer_id) AS unique_customers
+FROM
+customers
+GROUP BY
+customer_state;
+
+-- SP - 41746 ,RJ - 12852 , MG - 11635, lowest RR - 46
+
+  Q3.  Frequency credit card payment by state?
+
+SELECT
+c.customer_state,
+SUM(IF(op.payment_type='credit_card',1,0)) AS credit_card_frequency
+FROM
+customers c
+JOIN orders o USING(customer_id)
+JOIN order_payments op ON o.order_id=op.order_id
+WHERE o.order_status!='Canceled'
+GROUP BY
+customer_state
+
+-- SP - 31935 , RJ - 10225 , MG - 9024 , lowest RR- 32
+
+
+Q4.  Proportion of customers paying in more than one installment by state?
+
+SELECT
+c.customer_state,(SUM(IF(op.payment_installments>1,1,0))*100/SUM(op.payment_installments)) AS proportion
+FROM
+customers c
+JOIN orders o USING(customer_id)
+JOIN order_payments op ON o.order_id=op.order_id
+GROUP BY
+customer_state
+
+-- AP - 20.76 , MA - 17.84 , DF - 17.84 , lowest  AM - 16.07
+
+Q5. Average difference between order and delivery time by state?
+       
+      WITH CTE AS (SELECT 
+       c.customer_state, DATEDIFF(order_delivered_customer,order_purchase) AS difference
+       FROM 
+        orders o 
+         JOIN customers c USING(customer_id)
+          WHERE 
+           o.order_status!='Canceled')
+           
+           SELECT 
+            customer_state,ROUND(AVG(difference),2) AS avg_date_diff
+             FROM  
+              CTE
+               WHERE difference IS NOT NULL
+                GROUP BY 
+                 customer_state;
+
+-- RR- 29.34 , AP - 27.18 , AM - 26.36 , lowest - SP - 8.70
+
+Q6.Which are the top ten cities that have the most customers?
+
+
+WITH CTE AS (SELECT
+ c.customer_state,COUNT(o.customer_id) AS customer_count,DENSE_RANK()
+  OVER(ORDER BY COUNT(o.customer_id) DESC ) AS rk
+ FROM
+  customers c JOIN orders o USING(customer_id)
+   WHERE
+    o.order_status!='Canceled'
+   GROUP BY
+    customer_state)
+
+     SELECT
+      customer_state,customer_count
+       FROM CTE
+        WHERE rk<=10
+
+ -- SP - 41418 , RJ - 12766 , MG - 11571 , GO - 2007
+
+       
+       
+Q7. How many cities have more than 500 customers?
+
+WITH CTE AS (SELECT
+c.customer_city,COUNT(o.customer_id) AS city_number
+FROM
+customers c JOIN orders o USING(customer_id)
+WHERE o.order_status!='Canceled'
+GROUP BY
+customer_city
+HAVING
+COUNT(o.customer_id)>500)
+SELECT
+COUNT(customer_city) AS cities_count
+FROM CTE
+
+--  22
+
+
+Q8.Which are the top ten states that have the most customers?
+
+WITH CTE AS (SELECT
+c.customer_city,COUNT(o.customer_id) AS customer_count,DENSE_RANK()
+OVER(ORDER BY COUNT(o.customer_id) DESC ) AS rk
+FROM
+customers c JOIN orders o USING(customer_id)
+WHERE
+o.order_status!='Canceled'
+GROUP BY
+customer_city)
+       SELECT
+      customer_city,customer_count
+       FROM CTE
+        WHERE rk<=10;
+
+-- sao paulo - 15400 , ri de janeiro - 6834 , belo horizonte - 2756 , brasilia - 2124,
+  curitiba - 1511 , campinas - 1433 , porte alegre - 1374 , salvador - 1241 
+  , guarulhos - 1176, sao bernardo do campo - 930
+
+
+Q9.  How many percents of the customer base do the top ten cities account for?
+
+         WITH CTE AS (SELECT
+ c.customer_city,COUNT(DISTINCT o.customer_id) AS customer_count,DENSE_RANK()
+  OVER(ORDER BY COUNT(DISTINCT o.customer_id) DESC ) AS rk
+ FROM
+  customers c JOIN orders o USING(customer_id)
+   WHERE
+    o.order_status!='Canceled'
+   GROUP BY
+    customer_city)
+     SELECT
+      ROUND(SUM(customer_count)*100/
+       (SELECT COUNT(DISTINCT customer_id) FROM orders ),2) AS top_10_city_percentage
+       FROM CTE
+        WHERE rk<=10;
+
+-- 34.97 %
+
+
+Q10. How many percents of the customer base do the top ten states account for?
+
+WITH CTE AS (SELECT
+ c.customer_state,COUNT(DISTINCT o.customer_id) AS customer_count,DENSE_RANK()
+  OVER(ORDER BY COUNT(DISTINCT o.customer_id) DESC ) AS rk
+ FROM
+  customers c JOIN orders o USING(customer_id)
+   WHERE
+    o.order_status!='Canceled'
+   GROUP BY
+    customer_state)
+     SELECT
+      ROUND(SUM(customer_count)*100/
+       (SELECT COUNT(DISTINCT customer_id) FROM orders ),2) AS top_10_state_percentage
+       FROM CTE
+        WHERE rk<=10;
+
+-- 89.87 %
+
+Q11. Which are the top ten cities that have the most sellers?
+
+
+
+WITH CTE AS (SELECT
+c.customer_city,COUNT(oi.seller_id) AS sellers_count,
+DENSE_RANK()OVER(ORDER BY COUNT(oi.seller_id) DESC) AS rk
+FROM
+customers c
+JOIN orders o USING(customer_id)
+JOIN order_items oi ON oi.order_id=o.order_id
+WHERE
+o.order_status!='Canceled'
+GROUP BY
+customer_city)
+SELECT
+customer_city,sellers_count
+FROM CTE
+WHERE rk<=10;
+
+-- 
+Sao paulo           
+Rio de janeiro
+Belo horizonte
+Brasilia
+Curitiba
+Campinas
+Porto alegre
+Salvador
+Guarulhos
+Sao bernardo do campo
+
+
+Q12. Which are the top ten states that have the most sellers?
+
+WITH CTE AS (SELECT
+c.customer_state,COUNT(oi.seller_id) AS sellers_count,
+DENSE_RANK()OVER(ORDER BY COUNT(oi.seller_id) DESC) AS rk
+FROM
+customers c
+JOIN orders o USING(customer_id)
+JOIN order_items oi ON oi.order_id=o.order_id
+WHERE
+o.order_status!='Canceled'
+GROUP BY
+customer_state)
+SELECT
+customer_state,sellers_count
+FROM CTE
+WHERE rk<=10;
+
+
+-- SP
+RJ
+MG
+RS
+PR
+SC
+BA
+DF
+GO
+ES
+
+Q13.How many percents of the seller base do the top ten cities account for?
+
+WITH CTE AS (WITH CTE AS (SELECT
+c.customer_city,COUNT(oi.seller_id) AS sellers_count,
+DENSE_RANK()OVER(ORDER BY COUNT(oi.seller_id) DESC) AS rk
+FROM customers c
+JOIN orders o USING(customer_id)
+JOIN order_items oi ON oi.order_id=o.order_id
+WHERE
+o.order_status!='Canceled'
+GROUP BY customer_city)
+SELECT
+customer_city,sellers_count
+FROM CTE
+WHERE rk<=10  )
+SELECT
+(SUM(sellers_count)*100/
+(SELECT COUNT(seller_id) FROM order_items)) AS seller_proportion
+FROM CTE
+
+-- 35.2934 
+
+
+Q14. How many percents of the seller base do the top ten states account for?
+
+WITH CTE AS (WITH CTE AS (SELECT
+c.customer_state,COUNT(oi.seller_id) AS sellers_count,
+DENSE_RANK()OVER(ORDER BY COUNT(oi.seller_id) DESC) AS rk
+FROM customers c
+JOIN orders o USING(customer_id)
+JOIN order_items oi ON oi.order_id=o.order_id
+WHERE
+o.order_status!='Canceled'
+GROUP BY customer_state)
+SELECT
+customer_state,sellers_count
+FROM CTE
+WHERE rk<=10  )
+SELECT
+(SUM(sellers_count)*100/
+(SELECT COUNT(seller_id) FROM order_items)) AS seller_proportion
+FROM CTE;
+
+-- 90.1767 
