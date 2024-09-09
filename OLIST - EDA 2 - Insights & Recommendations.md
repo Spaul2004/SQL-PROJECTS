@@ -31,3 +31,19 @@
 ### Average Orders per Customer:
 
 * The average number of orders per customer is 1.
+
+
+##  Recommendations & Scope of Improvements 
+
+Customer retention is critical for long-term success. Analyzing repeat purchase rates and customer feedback helps identify areas for improvement,The choice of payment methods influences AOV and customer satisfaction. Payment preferences vary by category and region. Understanding customer growth and behavior provides insights into market trends and areas for expansion.
+
+
+***1. Improving Repeat Purchase Rate:*** The repeat purchase rate can be increased by developing a loyalty program that rewards customers for repeat purchases. Implement personalized marketing strategies based on purchase history to re-engage customers and encourage repeat business.
+
+***2. Leveraging Customer Ratings:*** The average customer rating has fluctuated, impacting sales performance. Encourage customers to leave reviews by offering incentives or making the review process easier. High-rated products should be featured prominently to attract more customers, while low-rated products should be reviewed for quality improvements.
+
+***3. Payment Method Optimization:*** Since credit cards are the most popular payment method, Olist should ensure that the checkout process is seamless for credit card users. Additionally, consider expanding payment options to include more regional preferences or alternative payment methods to cater to diverse customer needs.
+
+***4. Addressing Churn Factors:*** Analyze customer feedback and reviews to identify common factors contributing to churn. Implement targeted strategies to address these issues, such as improving customer service or enhancing product quality. Regularly monitor churn rates and adjust strategies accordingly.
+
+***5. Increasing Customer Growth Rate:*** To further boost customer growth, focus on targeted marketing campaigns in regions with high growth potential. Utilize data-driven insights to identify and tap into new market segments or demographics.
