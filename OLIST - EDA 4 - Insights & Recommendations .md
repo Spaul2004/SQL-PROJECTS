@@ -88,3 +88,17 @@
 Exact: 1.31%
 Late: 92.08%
 Early: 6.59%
+
+
+## Recommendations & Scope of Improvements 
+
+Seller performance and logistics efficiency directly impact customer satisfaction and operational efficiency.Efficient delivery processes are essential for maintaining high standards of service and customer satisfaction.
+
+
+***1. Evaluating Seller Performance:*** Monitor seller performance metrics, including average order value and review scores. Provide feedback and support to underperforming sellers and reward top performers with incentives or increased visibility on the platform.
+
+***2. Improving Delivery Times:*** Analyze delivery data to identify bottlenecks in the delivery process. Work with logistics partners to streamline operations and reduce delivery times. Implement real-time tracking and notifications to keep customers informed about their orders.
+
+***3. Optimizing Approval and Delivery Processes:*** Reduce the average approval time and carrier delivery time by automating processes and improving coordination with carriers. Regularly review and optimize these processes to ensure timely order fulfillment.
+
+***4. Enhancing Geospatial Analysis:*** Utilize geospatial analysis to optimize location-based marketing strategies and inventory distribution. Focus on high-density customer areas for targeted marketing and adjust inventory levels based on regional demand patterns.
